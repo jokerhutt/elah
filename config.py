@@ -1,6 +1,5 @@
 from pathlib import Path
 
-# Data paths
 PROJECT_ROOT = Path(__file__).resolve().parent
 DATA_ROOT = PROJECT_ROOT / "data"
 PRETRAIN_ROOT = DATA_ROOT
@@ -11,6 +10,7 @@ DATASETS = {
     "fineweb_edu": {
         "root": PRETRAIN_ROOT / "fineweb-edu",
         "base_url": "https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu/resolve/main/sample/10BT",
+        "field": "text",
         "files": [
             f"{i:03d}_00000.parquet"
             for i in range(10)
@@ -20,6 +20,7 @@ DATASETS = {
     "tinystories": {
         "root": PRETRAIN_ROOT / "tinystories",
         "base_url": "https://huggingface.co/datasets/roneneldan/TinyStories/resolve/main",
+        "format": "tinystories",
         "files": [
             "TinyStories-train.txt",
             "TinyStories-valid.txt",
@@ -29,6 +30,7 @@ DATASETS = {
     "codeparrot": {
         "root": PRETRAIN_ROOT / "codeparrot",
         "base_url": "https://huggingface.co/datasets/codeparrot/codeparrot-clean/resolve/main",
+        "field": "content",
         "files": [
             f"file-{i:012d}.json.gz"
             for i in range(1, 49)
@@ -39,6 +41,7 @@ DATASETS = {
     "cosmopedia_auto_math": {
         "root": PRETRAIN_ROOT / "cosmopedia" / "data" / "auto_math_text",
         "base_url": "https://huggingface.co/datasets/HuggingFaceTB/cosmopedia/resolve/main/data/auto_math_text",
+        "fields": ["prompt", "text"],
         "files": [
             f"train-{i:05d}-of-00018.parquet"
             for i in range(5)
@@ -48,6 +51,7 @@ DATASETS = {
     "cosmopedia_khanacademy": {
         "root": PRETRAIN_ROOT / "cosmopedia" / "data" / "khanacademy",
         "base_url": "https://huggingface.co/datasets/HuggingFaceTB/cosmopedia/resolve/main/data/khanacademy",
+        "fields": ["prompt", "text"],
         "files": [
             "train-00000-of-00001.parquet",
         ],
@@ -56,6 +60,7 @@ DATASETS = {
     "cosmopedia_openstax": {
         "root": PRETRAIN_ROOT / "cosmopedia" / "data" / "openstax",
         "base_url": "https://huggingface.co/datasets/HuggingFaceTB/cosmopedia/resolve/main/data/openstax",
+        "fields": ["prompt", "text"],
         "files": [
             "train-00000-of-00002.parquet",
             "train-00001-of-00002.parquet",
@@ -65,6 +70,7 @@ DATASETS = {
     "cosmopedia_stanford": {
         "root": PRETRAIN_ROOT / "cosmopedia" / "data" / "stanford",
         "base_url": "https://huggingface.co/datasets/HuggingFaceTB/cosmopedia/resolve/main/data/stanford",
+        "fields": ["prompt", "text"],
         "files": [
             f"train-{i:05d}-of-00013.parquet"
             for i in range(10)
@@ -74,6 +80,7 @@ DATASETS = {
     "cosmopedia_stories": {
         "root": PRETRAIN_ROOT / "cosmopedia" / "data" / "stories",
         "base_url": "https://huggingface.co/datasets/HuggingFaceTB/cosmopedia/resolve/main/data/stories",
+        "fields": ["prompt", "text"],
         "files": [
             f"train-{i:05d}-of-00043.parquet"
             for i in range(10)
@@ -83,6 +90,7 @@ DATASETS = {
     "cosmopedia_wikihow": {
         "root": PRETRAIN_ROOT / "cosmopedia" / "data" / "wikihow",
         "base_url": "https://huggingface.co/datasets/HuggingFaceTB/cosmopedia/resolve/main/data/wikihow",
+        "fields": ["prompt", "text"],
         "files": [
             "train-00000-of-00002.parquet",
             "train-00001-of-00002.parquet",
@@ -92,6 +100,7 @@ DATASETS = {
     "open_web_math": {
         "root": PRETRAIN_ROOT / "open-web-math",
         "base_url": "https://huggingface.co/datasets/open-web-math/open-web-math/resolve/main/data",
+        "field": "text",
         "files": [
             "train-00000-of-00114-5a023365406cb9c4.parquet",
             "train-00001-of-00114-e32fc2813a15f61c.parquet",
@@ -123,6 +132,7 @@ DATASETS = {
     "tulu3": {
         "root": SFT_ROOT / "tulu3",
         "base_url": "https://huggingface.co/datasets/allenai/tulu-3-sft-mixture/resolve/main/data",
+        "format": "chat",
         "files": [
             "train-00000-of-00006.parquet",
             "train-00001-of-00006.parquet",
