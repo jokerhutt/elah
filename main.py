@@ -1,8 +1,8 @@
-from data import check_datasets
+from data import check_datasets, inspect_datasets
 
 
 def main():
-    check_datasets()
+    inspect_datasets()
 
 
 if __name__ == "__main__":
