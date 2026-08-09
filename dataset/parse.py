@@ -17,15 +17,27 @@ def parse_file(path, config):
     raise ValueError(f"Unsupported file type: {path}")
 
 
-def _parse_tinystories(path):
+def _parse_tinystories(path, chunk_size=1 << 20):
+    delimiter = "<|endoftext|>"
+
     with open(path, encoding="utf-8") as f:
-        text = f.read()
+        buffer = ""
 
-    for story in text.split("<|endoftext|>"):
-        story = story.strip()
+        while chunk := f.read(chunk_size):
+            buffer += chunk
 
-        if story:
-            yield story
+            *stories, buffer = buffer.split(delimiter)
+
+            for story in stories:
+                story = story.strip()
+
+                if story:
+                    yield story
+
+    story = buffer.strip()
+
+    if story:
+        yield story
 
 
 def _parse_json_gz(path, field):

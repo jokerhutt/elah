@@ -28,10 +28,10 @@ TOKENIZER_AMOUNTS = {
 def iter_tokenizer_data():
     for name, amount in TOKENIZER_AMOUNTS.items():
         for sample in islice(_iter_dataset(name), amount):
-            yield sample if isinstance(sample, str) else _flatten_messages(sample)
+            yield sample if isinstance(sample, str) else format_chat(sample)
 
 
-def _flatten_messages(messages):
+def format_chat(messages):
     return "\n".join(
         f"{IM_START}{m['role']}\n{m['content']}{IM_END}"
         for m in messages

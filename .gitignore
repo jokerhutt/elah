@@ -14,6 +14,7 @@ venv/
 # Training data
 /data
 data/
+/artifacts/
 *.parquet
 *.json.gz
 

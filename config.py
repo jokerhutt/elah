@@ -1,15 +1,37 @@
 from pathlib import Path
 
+
 PROJECT_ROOT = Path(__file__).resolve().parent
 DATA_ROOT = PROJECT_ROOT / "data"
 PRETRAIN_ROOT = DATA_ROOT
 SFT_ROOT = DATA_ROOT / "sft"
+ARTIFACTS_ROOT = PROJECT_ROOT / "artifacts"
 
+# DATA LOADING
 IM_START = "<|im_start|>"
 IM_END = "<|im_end|>"
-SPECIAL_TOKENS = [IM_START, IM_END]
+END_OF_TEXT = "<|endoftext|>"
+SPECIAL_TOKENS = [IM_START, IM_END, END_OF_TEXT]
 
+# TOKENIZER CONFIG
+VOCAB_SIZE = 32_000
+MODEL_TYPE = "bpe"
 
+# EMBEDDING CONFIG
+D_MODEL = 1024
+
+TOKENIZER_DIR = ARTIFACTS_ROOT / "tokenizer"
+TOKENIZER_PREFIX = TOKENIZER_DIR / "tokenizer"
+TOKENIZER_MODEL = TOKENIZER_PREFIX.with_suffix(".model")
+TOKENIZER_VOCAB = TOKENIZER_PREFIX.with_suffix(".vocab")
+
+# PRETOKENIZED DATA
+TOKENS_DIR = ARTIFACTS_ROOT / "tokens"
+PRETRAIN_TOKENS = TOKENS_DIR / "pretrain.bin"
+SFT_TOKENS = TOKENS_DIR / "sft.bin"
+TOKEN_DTYPE = "uint16"
+
+# DATASETS
 DATASETS = {
     "fineweb_edu": {
         "root": PRETRAIN_ROOT / "fineweb-edu",
