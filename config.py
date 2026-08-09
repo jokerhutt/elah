@@ -1,7 +1,8 @@
 from pathlib import Path
 
 # Data paths
-DATA_ROOT = Path.home() / "data" / "training"
+PROJECT_ROOT = Path(__file__).resolve().parent
+DATA_ROOT = PROJECT_ROOT / "data"
 PRETRAIN_ROOT = DATA_ROOT
 SFT_ROOT = DATA_ROOT / "sft"
 
