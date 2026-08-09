@@ -38,11 +38,12 @@ def _parse_json_gz(path, field):
 
 
 def _parse_parquet(path, config):
-    for row in pq.read_table(path).to_pylist():
-        sample = _extract_sample(row, config)
+    for batch in pq.ParquetFile(path).iter_batches():
+        for row in batch.to_pylist():
+            sample = _extract_sample(row, config)
 
-        if sample:
-            yield sample
+            if sample:
+                yield sample
 
 
 def _extract_sample(row, config):

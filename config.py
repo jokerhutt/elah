@@ -5,6 +5,10 @@ DATA_ROOT = PROJECT_ROOT / "data"
 PRETRAIN_ROOT = DATA_ROOT
 SFT_ROOT = DATA_ROOT / "sft"
 
+IM_START = "<|im_start|>"
+IM_END = "<|im_end|>"
+SPECIAL_TOKENS = [IM_START, IM_END]
+
 
 DATASETS = {
     "fineweb_edu": {
@@ -23,7 +27,6 @@ DATASETS = {
         "format": "tinystories",
         "files": [
             "TinyStories-train.txt",
-            "TinyStories-valid.txt",
         ],
     },
 
