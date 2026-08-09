@@ -12,6 +12,7 @@ venv/
 .DS_Store
 
 # Training data
+/data
 data/
 *.parquet
 *.json.gz
