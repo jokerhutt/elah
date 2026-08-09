@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+.venv/
+venv/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Training data
+data/
+*.parquet
+*.json.gz
+
+# Model checkpoints
+checkpoints/
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+
+# Logs / outputs
+logs/
+runs/
+outputs/
+
+# Misc
+.env
