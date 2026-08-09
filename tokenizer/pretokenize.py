@@ -1,9 +1,14 @@
+from itertools import batched
+
 import numpy as np
 
 from config import PRETRAIN_TOKENS, SFT_TOKENS, TOKEN_DTYPE, TOKENS_DIR
 from dataset import format_chat, iter_pretraining_data, iter_sft_data
 
 from .tokenizer import Tokenizer
+
+
+BATCH_SIZE = 1_000
 
 
 def pretokenize():
@@ -25,8 +30,12 @@ def _write_tokens(path, texts):
     tokenizer = Tokenizer()
 
     with open(path, "wb") as f:
-        for text in texts:
-            token_ids = tokenizer.encode(text) + [tokenizer.eot_id]
+        for batch in batched(texts, BATCH_SIZE):
+            token_ids = [
+                token
+                for ids in tokenizer.encode_batch(list(batch))
+                for token in (*ids, tokenizer.eot_id)
+            ]
 
             np.array(token_ids, dtype=TOKEN_DTYPE).tofile(f)
 

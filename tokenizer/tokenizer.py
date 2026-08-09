@@ -20,5 +20,9 @@ class Tokenizer:
     def encode(self, text: str) -> list[int]:
         return self.processor.encode(text, out_type=int)
 
+    def encode_batch(self, texts: list[str]) -> list[list[int]]:
+        # num_threads=-1 encodes the batch across all cores
+        return self.processor.encode(texts, out_type=int, num_threads=-1)
+
     def decode(self, tokens: list[int]) -> str:
         return self.processor.decode(tokens)
