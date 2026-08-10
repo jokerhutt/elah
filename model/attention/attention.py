@@ -1,6 +1,6 @@
 import torch
 
-from head import Head
+from model.attention.head import Head
 from config import D_MODEL, DROPOUT
 
 

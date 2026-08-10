@@ -1,6 +1,7 @@
 import torch
 
-from config import TRAINING_SPLIT_PERCENTAGE, GPU_DEVICE, LEARNING_RATE, MAX_ITERS, EVAL_INTERVAL, SAMPLE_INTERVAL
+from config import TRAINING_SPLIT_PERCENTAGE, GPU_DEVICE, LEARNING_RATE, MAX_ITERS, EVAL_INTERVAL, SAMPLE_INTERVAL, \
+    BLOCK_SIZE, BATCH_SIZE, EVAL_ITERS, CHECKPOINT_INTERVAL
 from model.transformer import ElahGPT
 from tokenizer.tokenizer import Tokenizer
 
@@ -47,7 +48,7 @@ class Trainer:
                 self._sample_model_output(m, max_new_sampling_tokens, GPU_DEVICE)
 
             # Save checkpoint
-            if iter % self.checkpoint_interval == 0 and iter > 0:
+            if iter % CHECKPOINT_INTERVAL == 0 and iter > 0:
                 self._save_checkpoint()
 
         ## TODO SAVE MODEL
@@ -71,17 +72,14 @@ class Trainer:
     def _save_checkpoint(self):
         print("TODO")
 
-
-
-
     @torch.no_grad
     def estimate_loss(self, model: ElahGPT) :
         out = {}
         model.eval()
 
         for split in ['train', 'val']:
-            losses = torch.zeros(self.eval_iters)
-            for k in range(self.eval_iters) :
+            losses = torch.zeros(EVAL_ITERS)
+            for k in range(EVAL_ITERS) :
                 X, Y = self._get_batch(split)
                 logits, loss = model(X, Y)
                 losses[k] = loss.item()
@@ -93,9 +91,9 @@ class Trainer:
     def _get_batch(self, split: str) :
         data = self.training_data if split == "train" else self.validation_data
 
-        ix = torch.randint(len(data) - self.block_size, (self.batch_size,))
-        x = torch.stack([data[i: i + self.block_size] for i in ix])
-        y = torch.stack([data[i+1: i + self.block_size + 1] for i in ix])
+        ix = torch.randint(len(data) - BLOCK_SIZE, (BATCH_SIZE,))
+        x = torch.stack([data[i: i + BLOCK_SIZE] for i in ix])
+        y = torch.stack([data[i+1: i + BLOCK_SIZE + 1] for i in ix])
 
-        x, y = x.to(self. device), y.to(self.device)
+        x, y = x.to(GPU_DEVICE), y.to(GPU_DEVICE)
         return x,y

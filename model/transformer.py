@@ -3,12 +3,14 @@ from typing import Any
 import torch
 
 from config import D_MODEL, VOCAB_SIZE, BLOCK_SIZE, DROPOUT, N_HEAD, N_LAYER, NORM_EPS, GPU_DEVICE
-from block import Block
+
+from model.block import Block
 
 
 class ElahGPT(torch.nn.Module):
 
     def __init__(self):
+        super().__init__()
 
         self.token_embedding_table = torch.nn.Embedding(VOCAB_SIZE, D_MODEL)
         self.position_embedding_table = torch.nn.Embedding(BLOCK_SIZE, D_MODEL)
@@ -18,7 +20,7 @@ class ElahGPT(torch.nn.Module):
         self.final_norm = torch.nn.RMSNorm(D_MODEL, eps=NORM_EPS)
         self.lm_head = torch.nn.Linear(D_MODEL, VOCAB_SIZE)
 
-        self.apply(self.__init_weights)
+        self.apply(self._init_weights)
 
     def _init_weights(self, module):
         # Initialize Linear Layer
