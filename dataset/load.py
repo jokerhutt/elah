@@ -25,10 +25,18 @@ TOKENIZER_AMOUNTS = {
 
 }
 
+MAX_SAMPLE_CHARS = 4_000
+
 def iter_tokenizer_data():
     for name, amount in TOKENIZER_AMOUNTS.items():
         for sample in islice(_iter_dataset(name), amount):
-            yield sample if isinstance(sample, str) else format_chat(sample)
+            text = sample if isinstance(sample, str) else format_chat(sample)
+
+            for start in range(0, len(text), MAX_SAMPLE_CHARS):
+                chunk = text[start : start + MAX_SAMPLE_CHARS]
+
+                if chunk.strip():
+                    yield chunk
 
 
 def format_chat(messages):

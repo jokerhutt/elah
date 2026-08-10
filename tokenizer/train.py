@@ -15,6 +15,9 @@ def train_tokenizer():
 
         user_defined_symbols=SPECIAL_TOKENS,
 
+        max_sentence_length=16_384,
+        byte_fallback=True,
+
         bos_id=-1,
         eos_id=-1,
         pad_id=-1,
