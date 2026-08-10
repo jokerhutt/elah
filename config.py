@@ -58,6 +58,27 @@ PRETRAIN_TOKENS = TOKENS_DIR / "pretrain.bin"
 SFT_TOKENS = TOKENS_DIR / "sft.bin"
 TOKEN_DTYPE = "uint16"
 
+# TRAINING STAGES
+CHECKPOINT_DIR = ARTIFACTS_ROOT / "checkpoints"
+
+STAGES = {
+    "pretrain": {
+        "tokens": PRETRAIN_TOKENS,
+        "learning_rate": LEARNING_RATE,
+        # documents end with <|endoftext|>
+        "stop_token": "eot_id",
+        "resume_from": None,
+    },
+
+    "sft": {
+        "tokens": SFT_TOKENS,
+        "learning_rate": 2e-5,
+        # assistant turns end with <|im_end|>
+        "stop_token": "im_end_id",
+        "resume_from": "pretrain",
+    },
+}
+
 # DATASETS
 DATASETS = {
     "fineweb_edu": {
