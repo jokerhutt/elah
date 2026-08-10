@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import torch
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 DATA_ROOT = PROJECT_ROOT / "data"
@@ -24,6 +25,31 @@ TOKENIZER_DIR = ARTIFACTS_ROOT / "tokenizer"
 TOKENIZER_PREFIX = TOKENIZER_DIR / "tokenizer"
 TOKENIZER_MODEL = TOKENIZER_PREFIX.with_suffix(".model")
 TOKENIZER_VOCAB = TOKENIZER_PREFIX.with_suffix(".vocab")
+
+# TRANSFORMER CONFIG
+BLOCK_SIZE = 255
+BATCH_SIZE = 128
+MAX_ITERS = 5000
+
+LEARNING_RATE = 3e-4
+NORM_EPS = 1e-5
+N_HEAD = 8
+N_LAYER = 8
+DROPOUT = 0.2
+
+TRAINING_SPLIT_PERCENTAGE = 0.9
+
+# LOGGING
+SAMPLE_INTERVAL = 2000
+EVAL_INTERVAL = 500
+EVAL_ITERS = 200
+
+# GPU
+GPU_DEVICE = (
+    "cuda" if torch.cuda.is_available()
+    else "mps" if torch.backends.mps.is_available()
+    else "cpu"
+)
 
 # PRETOKENIZED DATA
 TOKENS_DIR = ARTIFACTS_ROOT / "tokens"
