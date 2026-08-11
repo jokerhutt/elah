@@ -11,6 +11,9 @@ venv/
 .idea/
 .DS_Store
 
+# Agents
+CLAUDE.local.md
+
 # Training data
 /data
 data/

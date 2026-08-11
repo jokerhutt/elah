@@ -1,8 +1,11 @@
+import math
+
 import numpy as np
 import torch
 
 from config import TRAINING_SPLIT_PERCENTAGE, GPU_DEVICE, MAX_ITERS, EVAL_INTERVAL, SAMPLE_INTERVAL, \
-    BLOCK_SIZE, BATCH_SIZE, EVAL_ITERS, CHECKPOINT_INTERVAL, CHECKPOINT_DIR, STAGES, TOKEN_DTYPE
+    BLOCK_SIZE, BATCH_SIZE, EVAL_ITERS, CHECKPOINT_INTERVAL, CHECKPOINT_DIR, STAGES, TOKEN_DTYPE, \
+    USE_BF16, WARMUP_STEPS, MIN_LR_RATIO, GRAD_CLIP, ADAM_BETAS, WEIGHT_DECAY
 from model.transformer import ElahGPT
 from tokenizer.tokenizer import Tokenizer
 
@@ -37,21 +40,37 @@ class Trainer:
         self._resume_from_previous_stage(m)
 
         learning_rate = self.config["learning_rate"]
-        optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
-        print(f"Optimizer set at learning rate of {learning_rate}")
+        optimizer = torch.optim.AdamW(
+            model.parameters(),
+            lr=learning_rate,
+            betas=ADAM_BETAS,
+            weight_decay=WEIGHT_DECAY,
+        )
+        print(f"Optimizer set at peak learning rate of {learning_rate}")
+        print(f"bfloat16 autocast: {'on' if USE_BF16 else 'off'}")
 
         for iter in range(MAX_ITERS):
 
+            lr = self._learning_rate_at(iter)
+            for group in optimizer.param_groups:
+                group["lr"] = lr
+
             if iter % EVAL_INTERVAL == 0 or iter == MAX_ITERS - 1:
                 losses = self.estimate_loss(m)
-                print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+                print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}, lr {lr:.2e}")
 
             xb, yb = self._get_batch('train')
 
             # forward pass
-            logits, loss = m(xb, yb)
+            with self._autocast():
+                logits, loss = m(xb, yb)
+
+            # backward stays outside autocast
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
+
+            torch.nn.utils.clip_grad_norm_(m.parameters(), GRAD_CLIP)
+
             optimizer.step()
 
             # Sample inference output
@@ -79,6 +98,22 @@ class Trainer:
         print(f"SAMPLE @ STEP {step}")
         print("-----------")
         print(sample)
+
+    def _autocast(self):
+        return torch.autocast(device_type=GPU_DEVICE, dtype=torch.bfloat16, enabled=USE_BF16)
+
+    def _learning_rate_at(self, step: int):
+        peak = self.config["learning_rate"]
+
+        # linear warmup
+        if step < WARMUP_STEPS:
+            return peak * (step + 1) / WARMUP_STEPS
+
+        # cosine decay from peak down to MIN_LR_RATIO * peak
+        progress = (step - WARMUP_STEPS) / max(1, MAX_ITERS - 1 - WARMUP_STEPS)
+        cosine = 0.5 * (1 + math.cos(math.pi * min(progress, 1.0)))
+
+        return peak * (MIN_LR_RATIO + (1 - MIN_LR_RATIO) * cosine)
 
     def _checkpoint_path(self, stage: str):
         return CHECKPOINT_DIR / f"{stage}.pt"
@@ -116,7 +151,8 @@ class Trainer:
             losses = torch.zeros(EVAL_ITERS)
             for k in range(EVAL_ITERS) :
                 X, Y = self._get_batch(split)
-                logits, loss = model(X, Y)
+                with self._autocast():
+                    logits, loss = model(X, Y)
                 losses[k] = loss.item()
             out[split] = losses.mean()
         model.train()
