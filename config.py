@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from pathlib import Path
 
 import torch
@@ -33,6 +34,7 @@ MAX_ITERS = 22_888
 
 LEARNING_RATE = 3e-4
 NORM_EPS = 1e-5
+TIE_WEIGHTS = True
 N_HEAD = 8
 N_LAYER = 10
 DROPOUT = 0.2
@@ -92,6 +94,40 @@ STAGES = {
         "resume_from": "pretrain",
     },
 }
+
+@dataclass(frozen=True)
+class ModelConfig:
+    vocab_size: int = VOCAB_SIZE
+    d_model: int = D_MODEL
+    n_layer: int = N_LAYER
+    n_head: int = N_HEAD
+    block_size: int = BLOCK_SIZE
+    dropout: float = DROPOUT
+    norm_eps: float = NORM_EPS
+    tie_weights: bool = TIE_WEIGHTS
+
+
+@dataclass(frozen=True)
+class TrainingConfig:
+    max_iters: int = MAX_ITERS
+    batch_size: int = BATCH_SIZE
+    block_size: int = BLOCK_SIZE
+    training_split: float = TRAINING_SPLIT_PERCENTAGE
+
+    warmup_steps: int = WARMUP_STEPS
+    min_lr_ratio: float = MIN_LR_RATIO
+    grad_clip: float = GRAD_CLIP
+    adam_betas: tuple[float, float] = ADAM_BETAS
+    weight_decay: float = WEIGHT_DECAY
+
+    eval_interval: int = EVAL_INTERVAL
+    eval_iters: int = EVAL_ITERS
+    sample_interval: int = SAMPLE_INTERVAL
+    checkpoint_interval: int = CHECKPOINT_INTERVAL
+
+    device: str = GPU_DEVICE
+    use_bf16: bool = USE_BF16
+
 
 # DATASETS
 DATASETS = {

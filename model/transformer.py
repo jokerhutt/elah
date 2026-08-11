@@ -1,26 +1,28 @@
-from typing import Any
-
 import torch
 
-from config import D_MODEL, VOCAB_SIZE, BLOCK_SIZE, DROPOUT, N_HEAD, N_LAYER, NORM_EPS, GPU_DEVICE
-
+from config import ModelConfig
 from model.block import Block
 
 
 class ElahGPT(torch.nn.Module):
 
-    def __init__(self):
+    def __init__(self, config: ModelConfig | None = None):
         super().__init__()
 
-        self.token_embedding_table = torch.nn.Embedding(VOCAB_SIZE, D_MODEL)
-        self.position_embedding_table = torch.nn.Embedding(BLOCK_SIZE, D_MODEL)
+        self.config = config or ModelConfig()
 
-        self.blocks = torch.nn.Sequential(*[Block(D_MODEL, N_HEAD) for _ in range (N_LAYER)])
+        self.token_embedding_table = torch.nn.Embedding(self.config.vocab_size, self.config.d_model)
+        self.position_embedding_table = torch.nn.Embedding(self.config.block_size, self.config.d_model)
 
-        self.final_norm = torch.nn.RMSNorm(D_MODEL, eps=NORM_EPS)
-        self.lm_head = torch.nn.Linear(D_MODEL, VOCAB_SIZE)
+        self.blocks = torch.nn.Sequential(*[Block(self.config) for _ in range (self.config.n_layer)])
+
+        self.final_norm = torch.nn.RMSNorm(self.config.d_model, eps=self.config.norm_eps)
+        self.lm_head = torch.nn.Linear(self.config.d_model, self.config.vocab_size)
 
         self.apply(self._init_weights)
+
+        if self.config.tie_weights:
+            self.lm_head.weight = self.token_embedding_table.weight
 
     def _init_weights(self, module):
         # Initialize Linear Layer
@@ -37,7 +39,7 @@ class ElahGPT(torch.nn.Module):
         B, T = idx.shape
 
         tok_emb = self.token_embedding_table(idx)
-        pos_emb = self.position_embedding_table(torch.arange(T, device=GPU_DEVICE))
+        pos_emb = self.position_embedding_table(torch.arange(T, device=idx.device))
 
         # Add token and position embedding tensors
         x = tok_emb + pos_emb
@@ -85,7 +87,7 @@ class ElahGPT(torch.nn.Module):
                 for _ in range(max_new_tokens):
 
                     # trim context to context window
-                    idx_cond = idx[:, -BLOCK_SIZE:]
+                    idx_cond = idx[:, -self.config.block_size:]
 
                     # run forward pass
                     logits, _ = self(idx_cond)

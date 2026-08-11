@@ -1,21 +1,22 @@
 import torch
 from torch.nn import functional as F
 
-from config import D_MODEL, DROPOUT
+from config import ModelConfig
 
 
 class MultiHeadAttention(torch.nn.Module) :
 
-    def __init__(self, num_heads, head_size) :
+    def __init__(self, config: ModelConfig) :
         super().__init__()
 
-        self.num_heads = num_heads
-        self.head_size = head_size
-        self.inner_size = num_heads * head_size
+        self.num_heads = config.n_head
+        self.head_size = config.d_model // config.n_head
+        self.inner_size = self.num_heads * self.head_size
+        self.dropout_p = config.dropout
 
-        self.qkv = torch.nn.Linear(D_MODEL, 3 * self.inner_size, bias=False)
-        self.proj = torch.nn.Linear(self.inner_size, D_MODEL)
-        self.dropout = torch.nn.Dropout(DROPOUT)
+        self.qkv = torch.nn.Linear(config.d_model, 3 * self.inner_size, bias=False)
+        self.proj = torch.nn.Linear(self.inner_size, config.d_model)
+        self.dropout = torch.nn.Dropout(config.dropout)
 
     def forward(self, x) :
         B, T, C = x.shape
@@ -33,7 +34,7 @@ class MultiHeadAttention(torch.nn.Module) :
             is_causal=True,
 
             # Only load dropout in SFT
-            dropout_p=DROPOUT if self.training else 0.0,
+            dropout_p= self.dropout_p if self.training else 0.0,
         )
 
         out = out.transpose(1, 2).contiguous().view(B, T, self.inner_size)
