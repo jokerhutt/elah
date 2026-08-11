@@ -48,10 +48,9 @@ class Trainer:
 
         learning_rate = self.config["learning_rate"]
         optimizer = torch.optim.AdamW(
-            model.parameters(),
+            self._parameter_groups(m),
             lr=learning_rate,
             betas=train_config.adam_betas,
-            weight_decay=train_config.weight_decay,
         )
         print(f"Optimizer set at peak learning rate of {learning_rate}")
         print(f"bfloat16 autocast: {'on' if train_config.use_bf16 else 'off'}")
@@ -105,6 +104,15 @@ class Trainer:
         print(f"SAMPLE @ STEP {step}")
         print("-----------")
         print(sample)
+
+    def _parameter_groups(self, model: ElahGPT):
+        decayed = [p for p in model.parameters() if p.requires_grad and p.dim() >= 2]
+        undecayed = [p for p in model.parameters() if p.requires_grad and p.dim() < 2]
+
+        return [
+            {"params": decayed, "weight_decay": self.train_config.weight_decay},
+            {"params": undecayed, "weight_decay": 0.0},
+        ]
 
     def _autocast(self):
         return torch.autocast(
@@ -173,7 +181,7 @@ class Trainer:
     def _get_batch(self, split: str) :
         data = self.training_data if split == "train" else self.validation_data
 
-        block_size = self.train_config.block_size
+        block_size = self.model_config.block_size
 
         ix = np.random.randint(0, len(data) - block_size, size=self.train_config.batch_size)
 

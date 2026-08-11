@@ -1,3 +1,5 @@
+import math
+
 import torch
 
 from config import ModelConfig
@@ -20,9 +22,17 @@ class ElahGPT(torch.nn.Module):
         self.lm_head = torch.nn.Linear(self.config.d_model, self.config.vocab_size)
 
         self.apply(self._init_weights)
+        self._scale_residual_projections()
 
         if self.config.tie_weights:
             self.lm_head.weight = self.token_embedding_table.weight
+
+    def _scale_residual_projections(self):
+        std = 0.02 / math.sqrt(2 * self.config.n_layer)
+
+        for block in self.blocks:
+            torch.nn.init.normal_(block.sa.proj.weight, mean=0.0, std=std)
+            torch.nn.init.normal_(block.ffwd.output_layer.weight, mean=0.0, std=std)
 
     def _init_weights(self, module):
         # Initialize Linear Layer
@@ -55,13 +65,11 @@ class ElahGPT(torch.nn.Module):
         if targets is None:
             loss = None
         else:
-            # Reshape logits
-            B,T,C = logits.shape
-            logits = logits.view(B*T, C)
-            targets = targets.view(B*T)
-
-            # Compute loss
-            loss = torch.nn.functional.cross_entropy(logits, targets)
+            # reshape only for the loss, so logits keep their (B, T, C) shape either way
+            loss = torch.nn.functional.cross_entropy(
+                logits.reshape(-1, logits.size(-1)),
+                targets.reshape(-1),
+            )
 
         return logits, loss
 

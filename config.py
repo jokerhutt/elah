@@ -111,7 +111,6 @@ class ModelConfig:
 class TrainingConfig:
     max_iters: int = MAX_ITERS
     batch_size: int = BATCH_SIZE
-    block_size: int = BLOCK_SIZE
     training_split: float = TRAINING_SPLIT_PERCENTAGE
 
     warmup_steps: int = WARMUP_STEPS
