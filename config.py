@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import torch
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 DATA_ROOT = PROJECT_ROOT / "data"
@@ -25,11 +26,72 @@ TOKENIZER_PREFIX = TOKENIZER_DIR / "tokenizer"
 TOKENIZER_MODEL = TOKENIZER_PREFIX.with_suffix(".model")
 TOKENIZER_VOCAB = TOKENIZER_PREFIX.with_suffix(".vocab")
 
+# TRANSFORMER CONFIG
+BLOCK_SIZE = 1024
+BATCH_SIZE = 128
+MAX_ITERS = 22_888
+
+LEARNING_RATE = 3e-4
+NORM_EPS = 1e-5
+N_HEAD = 8
+N_LAYER = 10
+DROPOUT = 0.2
+
+TRAINING_SPLIT_PERCENTAGE = 0.9
+
+# LOGGING
+SAMPLE_INTERVAL = 2000
+CHECKPOINT_INTERVAL = 5000
+EVAL_INTERVAL = 500
+EVAL_ITERS = 100
+
+# GPU
+GPU_DEVICE = (
+    "cuda" if torch.cuda.is_available()
+    else "mps" if torch.backends.mps.is_available()
+    else "cpu"
+)
+
+# MIXED PRECISION
+# Only the best from jensen
+USE_BF16 = GPU_DEVICE == "cuda" and torch.cuda.is_bf16_supported()
+
+# LR SCHEDULE
+WARMUP_STEPS = 200
+MIN_LR_RATIO = 0.1
+
+# OPTIMIZER
+GRAD_CLIP = 1.0
+ADAM_BETAS = (0.9, 0.95)
+WEIGHT_DECAY = 0.1
+
 # PRETOKENIZED DATA
 TOKENS_DIR = ARTIFACTS_ROOT / "tokens"
 PRETRAIN_TOKENS = TOKENS_DIR / "pretrain.bin"
 SFT_TOKENS = TOKENS_DIR / "sft.bin"
 TOKEN_DTYPE = "uint16"
+
+# TRAINING STAGES
+CHECKPOINT_DIR = ARTIFACTS_ROOT / "checkpoints"
+MODEL_DIR = ARTIFACTS_ROOT / "models"
+
+STAGES = {
+    "pretrain": {
+        "tokens": PRETRAIN_TOKENS,
+        "learning_rate": LEARNING_RATE,
+        # documents end with <|endoftext|>
+        "stop_token": "eot_id",
+        "resume_from": None,
+    },
+
+    "sft": {
+        "tokens": SFT_TOKENS,
+        "learning_rate": 2e-5,
+        # assistant turns end with <|im_end|>
+        "stop_token": "im_end_id",
+        "resume_from": "pretrain",
+    },
+}
 
 # DATASETS
 DATASETS = {
