@@ -59,12 +59,14 @@ class Trainer:
         model, optimizer_state, start_step = self._build_model()
 
         m = model.to(train_config.device)
+        forward = torch.compile(m) if train_config.use_compile else m
 
         learning_rate = self.config["learning_rate"]
         optimizer = torch.optim.AdamW(
             self._parameter_groups(m),
             lr=learning_rate,
             betas=train_config.adam_betas,
+            fused=train_config.use_fused_adam,
         )
 
         if optimizer_state is not None:
@@ -74,7 +76,9 @@ class Trainer:
             f"params=[bold]{sum(p.numel() for p in m.parameters())/1e6:.1f}M[/] "
             f"device=[bold]{train_config.device}[/] "
             f"lr=[magenta]{learning_rate:.1e}[/] "
-            f"bf16=[bold]{'on' if train_config.use_bf16 else 'off'}[/]"
+            f"bf16=[bold]{'on' if train_config.use_bf16 else 'off'}[/] "
+            f"compile=[bold]{'on' if train_config.use_compile else 'off'}[/] "
+            f"fused_adam=[bold]{'on' if train_config.use_fused_adam else 'off'}[/]"
         )
 
         with training_progress(train_config.show_progress) as progress:
@@ -87,7 +91,7 @@ class Trainer:
                     group["lr"] = lr
 
                 if step % train_config.eval_interval == 0 or step == self.max_iters - 1:
-                    losses = self.estimate_loss(m)
+                    losses = self.estimate_loss(forward)
                     log.info(
                         f"step [bold]{step:>7,}[/] "
                         f"train [green]{losses['train']:.4f}[/] "
@@ -103,7 +107,7 @@ class Trainer:
 
                     # forward pass
                     with self._autocast():
-                        logits, loss = m(xb, yb)
+                        logits, loss = forward(xb, yb)
 
                     # backward stays outside autocast
                     (loss / self.accum_steps).backward()

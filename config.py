@@ -61,6 +61,8 @@ GPU_DEVICE = (
 # MIXED PRECISION
 # Only the best from jensen
 USE_BF16 = GPU_DEVICE == "cuda" and torch.cuda.is_bf16_supported()
+USE_COMPILE = GPU_DEVICE == "cuda"
+USE_FUSED_ADAM = GPU_DEVICE == "cuda"
 
 # LR SCHEDULE
 WARMUP_STEPS = 500
@@ -136,6 +138,8 @@ class TrainingConfig:
 
     device: str = GPU_DEVICE
     use_bf16: bool = USE_BF16
+    use_compile: bool = USE_COMPILE
+    use_fused_adam: bool = USE_FUSED_ADAM
 
 
 # DATASETS
