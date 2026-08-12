@@ -1,4 +1,8 @@
+import json
 import logging
+import time
+from datetime import datetime
+from pathlib import Path
 
 from rich.console import Console
 from rich.logging import RichHandler
@@ -36,6 +40,25 @@ def get_logger(name: str = "elah"):
 
 def log_panel(body: str, title: str):
     console.print(Panel(body, title=title, border_style="cyan"))
+
+
+class MetricsLog:
+    def __init__(self, path: Path):
+        self.path = path
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.started = time.monotonic()
+
+    def write(self, **fields):
+        record = {
+            "timestamp": datetime.now().astimezone().isoformat(timespec="seconds"),
+            "elapsed": round(time.monotonic() - self.started, 1),
+            **fields,
+        }
+
+        with open(self.path, "a") as f:
+            f.write(json.dumps(record) + "\n")
+
+        return record
 
 
 class NullProgress:

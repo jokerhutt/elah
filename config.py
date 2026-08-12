@@ -82,6 +82,7 @@ TOKEN_DTYPE = "uint16"
 # TRAINING STAGES
 CHECKPOINT_DIR = ARTIFACTS_ROOT / "checkpoints"
 MODEL_DIR = ARTIFACTS_ROOT / "models"
+METRICS_DIR = ARTIFACTS_ROOT / "metrics"
 
 STAGES = {
     "pretrain": {

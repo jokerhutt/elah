@@ -4,8 +4,8 @@ from dataclasses import replace
 import numpy as np
 import torch
 
-from config import CHECKPOINT_DIR, STAGES, TOKEN_DTYPE, ModelConfig, TrainingConfig
-from logs import get_logger, log_panel, training_progress
+from config import CHECKPOINT_DIR, METRICS_DIR, STAGES, TOKEN_DTYPE, ModelConfig, TrainingConfig
+from logs import MetricsLog, get_logger, log_panel, training_progress
 from model_io import load_checkpoint, save_checkpoint
 from model.attention.attention import MultiHeadAttention
 from model.transformer import ElahGPT
@@ -81,6 +81,9 @@ class Trainer:
             f"fused_adam=[bold]{'on' if train_config.use_fused_adam else 'off'}[/]"
         )
 
+        metrics = MetricsLog(METRICS_DIR / f"{self.stage}.jsonl")
+        tokens_per_step = train_config.batch_size * self.model_config.block_size
+
         with training_progress(train_config.show_progress) as progress:
             task = progress.add_task(self.stage, total=self.max_iters, completed=start_step, loss="-")
 
@@ -99,6 +102,14 @@ class Trainer:
                         f"lr [magenta]{lr:.2e}[/]"
                     )
                     progress.update(task, loss=f"{losses['train']:.4f}")
+                    metrics.write(
+                        stage=self.stage,
+                        step=step,
+                        tokens=step * tokens_per_step,
+                        train_loss=round(float(losses["train"]), 6),
+                        val_loss=round(float(losses["val"]), 6),
+                        learning_rate=lr,
+                    )
 
                 optimizer.zero_grad(set_to_none=True)
 
