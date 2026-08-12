@@ -33,7 +33,6 @@ def _check_datasets():
 
 
 def _download_datasets():
-    from config import DATASETS
     from dataset import download_datasets, missing_files
 
     missing = list(missing_files())
@@ -45,8 +44,23 @@ def _download_datasets():
     names = sorted({name for name, _, _ in missing})
     counts = {name: sum(1 for n, _, _ in missing if n == name) for name in names}
 
+    everything = f"Download all {len(missing)} missing file(s)"
+    by_dataset = "Choose datasets"
+
+    how = questionary.select(
+        f"{len(missing)} file(s) missing across {len(names)} dataset(s)",
+        choices=[everything, by_dataset, "Cancel"],
+    ).ask()
+
+    if how is None or how == "Cancel":
+        return
+
+    if how == everything:
+        download_datasets()
+        return
+
     chosen = questionary.checkbox(
-        f"{len(missing)} file(s) missing. Download which datasets?",
+        "Download which datasets?",
         choices=[questionary.Choice(f"{name} ({counts[name]})", value=name, checked=True) for name in names],
     ).ask()
 
