@@ -33,6 +33,7 @@ class Trainer:
         self.train_config = training_config or TrainingConfig()
 
         self.max_iters = self.config["max_iters"]
+        self.accum_steps = self.train_config.batch_size // self.train_config.micro_batch_size
 
         self.tokenizer = tokenizer or Tokenizer()
         self.stop_token_id = getattr(self.tokenizer, self.config["stop_token"])
@@ -95,15 +96,17 @@ class Trainer:
                     )
                     progress.update(task, loss=f"{losses['train']:.4f}")
 
-                xb, yb = self._get_batch('train')
-
-                # forward pass
-                with self._autocast():
-                    logits, loss = m(xb, yb)
-
-                # backward stays outside autocast
                 optimizer.zero_grad(set_to_none=True)
-                loss.backward()
+
+                for _ in range(self.accum_steps):
+                    xb, yb = self._get_batch('train')
+
+                    # forward pass
+                    with self._autocast():
+                        logits, loss = m(xb, yb)
+
+                    # backward stays outside autocast
+                    (loss / self.accum_steps).backward()
 
                 torch.nn.utils.clip_grad_norm_(m.parameters(), train_config.grad_clip)
 
@@ -236,7 +239,7 @@ class Trainer:
 
         block_size = self.model_config.block_size
 
-        ix = np.random.randint(0, len(data) - block_size, size=self.train_config.batch_size)
+        ix = np.random.randint(0, len(data) - block_size, size=self.train_config.micro_batch_size)
 
         x = torch.from_numpy(np.stack([data[i: i + block_size] for i in ix]).astype(np.int64))
         y = torch.from_numpy(np.stack([data[i+1: i + block_size + 1] for i in ix]).astype(np.int64))

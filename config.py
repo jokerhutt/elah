@@ -30,7 +30,10 @@ TOKENIZER_VOCAB = TOKENIZER_PREFIX.with_suffix(".vocab")
 # TRANSFORMER CONFIG
 BLOCK_SIZE = 1024
 BATCH_SIZE = 128
+MICRO_BATCH_SIZE = 16
 MAX_ITERS = 22_888
+
+assert BATCH_SIZE % MICRO_BATCH_SIZE == 0, "BATCH_SIZE must be a multiple of MICRO_BATCH_SIZE"
 
 LEARNING_RATE = 6e-4
 NORM_EPS = 1e-5
@@ -116,6 +119,7 @@ class ModelConfig:
 class TrainingConfig:
     max_iters: int = MAX_ITERS
     batch_size: int = BATCH_SIZE
+    micro_batch_size: int = MICRO_BATCH_SIZE
     training_split: float = TRAINING_SPLIT_PERCENTAGE
 
     warmup_steps: int = WARMUP_STEPS
