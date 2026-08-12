@@ -46,6 +46,7 @@ SAMPLE_INTERVAL = 2000
 CHECKPOINT_INTERVAL = 2000
 EVAL_INTERVAL = 500
 EVAL_ITERS = 50
+SHOW_PROGRESS = True
 
 # GPU
 GPU_DEVICE = (
@@ -127,6 +128,7 @@ class TrainingConfig:
     eval_iters: int = EVAL_ITERS
     sample_interval: int = SAMPLE_INTERVAL
     checkpoint_interval: int = CHECKPOINT_INTERVAL
+    show_progress: bool = SHOW_PROGRESS
 
     device: str = GPU_DEVICE
     use_bf16: bool = USE_BF16

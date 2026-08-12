@@ -5,10 +5,14 @@ import numpy as np
 import torch
 
 from config import CHECKPOINT_DIR, STAGES, TOKEN_DTYPE, ModelConfig, TrainingConfig
+from logs import get_logger, log_panel, training_progress
 from model_io import load_checkpoint, save_checkpoint
 from model.attention.attention import MultiHeadAttention
 from model.transformer import ElahGPT
 from tokenizer.tokenizer import Tokenizer
+
+
+log = get_logger()
 
 
 class Trainer:
@@ -39,7 +43,12 @@ class Trainer:
         self.training_data = data[:n]
         self.validation_data = data[n:]
 
-        print(f"Stage '{stage}': {len(data):,} tokens from {self.config['tokens'].name}")
+        log.info(
+            f"stage [bold cyan]{stage}[/] "
+            f"tokens=[bold]{len(data):,}[/] "
+            f"source=[dim]{self.config['tokens'].name}[/] "
+            f"steps=[bold]{self.max_iters:,}[/]"
+        )
 
 
     def run_training(self, max_new_tokens: int = 500, max_new_sampling_tokens: int = 200):
@@ -47,10 +56,8 @@ class Trainer:
         train_config = self.train_config
 
         model, optimizer_state, start_step = self._build_model()
-        print("Model Initialized")
 
         m = model.to(train_config.device)
-        print(f"Model device set to {train_config.device}")
 
         learning_rate = self.config["learning_rate"]
         optimizer = torch.optim.AdamW(
@@ -62,40 +69,55 @@ class Trainer:
         if optimizer_state is not None:
             optimizer.load_state_dict(optimizer_state)
 
-        print(f"Optimizer set at peak learning rate of {learning_rate}")
-        print(f"bfloat16 autocast: {'on' if train_config.use_bf16 else 'off'}")
+        log.info(
+            f"params=[bold]{sum(p.numel() for p in m.parameters())/1e6:.1f}M[/] "
+            f"device=[bold]{train_config.device}[/] "
+            f"lr=[magenta]{learning_rate:.1e}[/] "
+            f"bf16=[bold]{'on' if train_config.use_bf16 else 'off'}[/]"
+        )
 
-        for step in range(start_step, self.max_iters):
+        with training_progress(train_config.show_progress) as progress:
+            task = progress.add_task(self.stage, total=self.max_iters, completed=start_step, loss="-")
 
-            lr = self._learning_rate_at(step)
-            for group in optimizer.param_groups:
-                group["lr"] = lr
+            for step in range(start_step, self.max_iters):
 
-            if step % train_config.eval_interval == 0 or step == self.max_iters - 1:
-                losses = self.estimate_loss(m)
-                print(f"step {step}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}, lr {lr:.2e}")
+                lr = self._learning_rate_at(step)
+                for group in optimizer.param_groups:
+                    group["lr"] = lr
 
-            xb, yb = self._get_batch('train')
+                if step % train_config.eval_interval == 0 or step == self.max_iters - 1:
+                    losses = self.estimate_loss(m)
+                    log.info(
+                        f"step [bold]{step:>7,}[/] "
+                        f"train [green]{losses['train']:.4f}[/] "
+                        f"val [cyan]{losses['val']:.4f}[/] "
+                        f"lr [magenta]{lr:.2e}[/]"
+                    )
+                    progress.update(task, loss=f"{losses['train']:.4f}")
 
-            # forward pass
-            with self._autocast():
-                logits, loss = m(xb, yb)
+                xb, yb = self._get_batch('train')
 
-            # backward stays outside autocast
-            optimizer.zero_grad(set_to_none=True)
-            loss.backward()
+                # forward pass
+                with self._autocast():
+                    logits, loss = m(xb, yb)
 
-            torch.nn.utils.clip_grad_norm_(m.parameters(), train_config.grad_clip)
+                # backward stays outside autocast
+                optimizer.zero_grad(set_to_none=True)
+                loss.backward()
 
-            optimizer.step()
+                torch.nn.utils.clip_grad_norm_(m.parameters(), train_config.grad_clip)
 
-            # Sample inference output
-            if step % train_config.sample_interval == 0 and step > 0:
-                self._sample_model_output(m, max_new_sampling_tokens, train_config.device, step)
+                optimizer.step()
 
-            # Save checkpoint
-            if step % train_config.checkpoint_interval == 0 and step > 0:
-                self._save_checkpoint(m, optimizer, step)
+                progress.update(task, advance=1)
+
+                # Sample inference output
+                if step % train_config.sample_interval == 0 and step > 0:
+                    self._sample_model_output(m, max_new_sampling_tokens, train_config.device, step)
+
+                # Save checkpoint
+                if step % train_config.checkpoint_interval == 0 and step > 0:
+                    self._save_checkpoint(m, optimizer, step)
 
         self._save_checkpoint(m, optimizer, self.max_iters)
 
@@ -110,10 +132,7 @@ class Trainer:
             )[0].tolist()
         )
 
-        print("-----------")
-        print(f"SAMPLE @ STEP {step}")
-        print("-----------")
-        print(sample)
+        log_panel(sample, f"sample @ step {step:,}")
 
     def _parameter_groups(self, model: ElahGPT):
         decayed = [p for p in model.parameters() if p.requires_grad and p.dim() >= 2]
@@ -158,7 +177,7 @@ class Trainer:
 
             model, optimizer_state, step = load_checkpoint(self.stage, self.train_config.device)
             self.model_config = model.config
-            print(f"Continuing '{self.stage}' from {path} at step {step}")
+            log.info(f"continuing [bold cyan]{self.stage}[/] from [dim]{path}[/] at step [bold]{step:,}[/]")
 
             return model, optimizer_state, step
 
@@ -178,7 +197,7 @@ class Trainer:
         # the earlier stage's architecture wins, so this stage saves what it actually holds
         self.model_config = model.config
         self._apply_dropout(model, self.config["dropout"])
-        print(f"Resumed weights from {path}")
+        log.info(f"resumed weights from [dim]{path}[/] dropout=[bold]{self.config['dropout']}[/]")
 
         return model, None, 0
 
@@ -193,7 +212,7 @@ class Trainer:
 
     def _save_checkpoint(self, model: ElahGPT, optimizer, step):
         path = save_checkpoint(model, optimizer, step, self.stage, self.model_config)
-        print(f"Saved checkpoint to {path} at step {step}")
+        log.info(f"checkpoint [dim]{path}[/] step=[bold]{step:,}[/]")
 
     @torch.no_grad
     def estimate_loss(self, model: ElahGPT) :
