@@ -8,6 +8,8 @@ from .parse import parse_file
 
 SHUFFLE_BUFFER = 10_000
 
+PRETRAIN_CHAT_DOCS = 50_000
+
 
 TOKENIZER_AMOUNTS = {
     "fineweb_edu": 45_000,
@@ -52,26 +54,43 @@ def format_chat(messages):
 
 
 def iter_pretraining_data():
-    names = [name for name, config in DATASETS.items() if config.get("format") != "chat"]
+    streams = {}
 
-    yield from _shuffled(_interleaved(names))
+    for name, config in DATASETS.items():
+        stream = _iter_dataset(name)
+
+        if config.get("format") == "chat":
+            stream = islice(stream, PRETRAIN_CHAT_DOCS)
+
+        streams[name] = stream
+
+    yield from _shuffled(_formatted(_interleaved(streams)))
 
 
 def iter_sft_data():
-    names = [name for name, config in DATASETS.items() if config.get("format") == "chat"]
+    streams = {
+        name: _iter_dataset(name)
+        for name, config in DATASETS.items()
+        if config.get("format") == "chat"
+    }
 
-    yield from _shuffled(_interleaved(names))
+    yield from _shuffled(_interleaved(streams))
 
 
-def _interleaved(names):
-    iterators = {name: _iter_dataset(name) for name in names}
+def _formatted(samples):
+    for sample in samples:
+        yield sample if isinstance(sample, str) else format_chat(sample)
 
-    while iterators:
-        for name in list(iterators):
+
+def _interleaved(streams):
+    streams = dict(streams)
+
+    while streams:
+        for name in list(streams):
             try:
-                yield next(iterators[name])
+                yield next(streams[name])
             except StopIteration:
-                del iterators[name]
+                del streams[name]
 
 
 def _shuffled(samples, buffer_size=SHUFFLE_BUFFER):

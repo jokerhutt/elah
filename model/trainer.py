@@ -17,10 +17,12 @@ class Trainer:
         tokenizer: Tokenizer | None = None,
         model_config: ModelConfig | None = None,
         training_config: TrainingConfig | None = None,
+        resume: bool = False,
     ) :
 
         self.stage = stage
         self.config = STAGES[stage]
+        self.resume = resume
         self.model_config = model_config or ModelConfig()
         self.train_config = training_config or TrainingConfig()
 
@@ -40,7 +42,7 @@ class Trainer:
 
         train_config = self.train_config
 
-        model = self._build_model()
+        model, optimizer_state, start_step = self._build_model()
         print("Model Initialized")
 
         m = model.to(train_config.device)
@@ -52,18 +54,22 @@ class Trainer:
             lr=learning_rate,
             betas=train_config.adam_betas,
         )
+
+        if optimizer_state is not None:
+            optimizer.load_state_dict(optimizer_state)
+
         print(f"Optimizer set at peak learning rate of {learning_rate}")
         print(f"bfloat16 autocast: {'on' if train_config.use_bf16 else 'off'}")
 
-        for iter in range(train_config.max_iters):
+        for step in range(start_step, train_config.max_iters):
 
-            lr = self._learning_rate_at(iter)
+            lr = self._learning_rate_at(step)
             for group in optimizer.param_groups:
                 group["lr"] = lr
 
-            if iter % train_config.eval_interval == 0 or iter == train_config.max_iters - 1:
+            if step % train_config.eval_interval == 0 or step == train_config.max_iters - 1:
                 losses = self.estimate_loss(m)
-                print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}, lr {lr:.2e}")
+                print(f"step {step}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}, lr {lr:.2e}")
 
             xb, yb = self._get_batch('train')
 
@@ -80,12 +86,12 @@ class Trainer:
             optimizer.step()
 
             # Sample inference output
-            if iter % train_config.sample_interval == 0 and iter > 0:
-                self._sample_model_output(m, max_new_sampling_tokens, train_config.device, iter)
+            if step % train_config.sample_interval == 0 and step > 0:
+                self._sample_model_output(m, max_new_sampling_tokens, train_config.device, step)
 
             # Save checkpoint
-            if iter % train_config.checkpoint_interval == 0 and iter > 0:
-                self._save_checkpoint(m, optimizer, iter)
+            if step % train_config.checkpoint_interval == 0 and step > 0:
+                self._save_checkpoint(m, optimizer, step)
 
         self._save_checkpoint(m, optimizer, train_config.max_iters)
 
@@ -138,24 +144,38 @@ class Trainer:
     def _checkpoint_path(self, stage: str):
         return CHECKPOINT_DIR / f"{stage}.pt"
 
+    # returns (model, optimizer state or None, step to start from)
     def _build_model(self):
+        if self.resume:
+            path = self._checkpoint_path(self.stage)
+
+            if not path.exists():
+                raise FileNotFoundError(f"cannot continue stage '{self.stage}', {path} is missing")
+
+            model, optimizer_state, step = load_checkpoint(self.stage, self.train_config.device)
+            self.model_config = model.config
+            print(f"Continuing '{self.stage}' from {path} at step {step}")
+
+            return model, optimizer_state, step
+
         previous = self.config["resume_from"]
 
         if previous is None:
-            return ElahGPT(self.model_config)
+            return ElahGPT(self.model_config), None, 0
 
         path = self._checkpoint_path(previous)
 
         if not path.exists():
             raise FileNotFoundError(f"stage '{self.stage}' resumes from '{previous}', but {path} is missing")
 
+        # a new stage starts its own schedule, so only the weights carry over
         model, _, _ = load_checkpoint(previous, self.train_config.device)
 
         # the earlier stage's architecture wins, so this stage saves what it actually holds
         self.model_config = model.config
         print(f"Resumed weights from {path}")
 
-        return model
+        return model, None, 0
 
     def _save_checkpoint(self, model: ElahGPT, optimizer, step):
         path = save_checkpoint(model, optimizer, step, self.stage, self.model_config)
