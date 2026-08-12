@@ -32,20 +32,20 @@ BLOCK_SIZE = 1024
 BATCH_SIZE = 128
 MAX_ITERS = 22_888
 
-LEARNING_RATE = 3e-4
+LEARNING_RATE = 6e-4
 NORM_EPS = 1e-5
 TIE_WEIGHTS = True
 N_HEAD = 8
 N_LAYER = 10
-DROPOUT = 0.2
+DROPOUT = 0.0
 
 TRAINING_SPLIT_PERCENTAGE = 0.9
 
 # LOGGING
 SAMPLE_INTERVAL = 2000
-CHECKPOINT_INTERVAL = 5000
+CHECKPOINT_INTERVAL = 2000
 EVAL_INTERVAL = 500
-EVAL_ITERS = 100
+EVAL_ITERS = 50
 
 # GPU
 GPU_DEVICE = (
@@ -59,7 +59,7 @@ GPU_DEVICE = (
 USE_BF16 = GPU_DEVICE == "cuda" and torch.cuda.is_bf16_supported()
 
 # LR SCHEDULE
-WARMUP_STEPS = 200
+WARMUP_STEPS = 500
 MIN_LR_RATIO = 0.1
 
 # OPTIMIZER
@@ -81,6 +81,8 @@ STAGES = {
     "pretrain": {
         "tokens": PRETRAIN_TOKENS,
         "learning_rate": LEARNING_RATE,
+        "max_iters": MAX_ITERS,
+        "dropout": 0.0,
         # documents end with <|endoftext|>
         "stop_token": "eot_id",
         "resume_from": None,
@@ -89,6 +91,8 @@ STAGES = {
     "sft": {
         "tokens": SFT_TOKENS,
         "learning_rate": 2e-5,
+        "max_iters": 3_500,
+        "dropout": 0.1,
         # assistant turns end with <|im_end|>
         "stop_token": "im_end_id",
         "resume_from": "pretrain",

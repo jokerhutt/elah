@@ -1,10 +1,12 @@
 import math
+from dataclasses import replace
 
 import numpy as np
 import torch
 
 from config import CHECKPOINT_DIR, STAGES, TOKEN_DTYPE, ModelConfig, TrainingConfig
 from model_io import load_checkpoint, save_checkpoint
+from model.attention.attention import MultiHeadAttention
 from model.transformer import ElahGPT
 from tokenizer.tokenizer import Tokenizer
 
@@ -23,8 +25,10 @@ class Trainer:
         self.stage = stage
         self.config = STAGES[stage]
         self.resume = resume
-        self.model_config = model_config or ModelConfig()
+        self.model_config = model_config or ModelConfig(dropout=self.config["dropout"])
         self.train_config = training_config or TrainingConfig()
+
+        self.max_iters = self.config["max_iters"]
 
         self.tokenizer = tokenizer or Tokenizer()
         self.stop_token_id = getattr(self.tokenizer, self.config["stop_token"])
@@ -61,13 +65,13 @@ class Trainer:
         print(f"Optimizer set at peak learning rate of {learning_rate}")
         print(f"bfloat16 autocast: {'on' if train_config.use_bf16 else 'off'}")
 
-        for step in range(start_step, train_config.max_iters):
+        for step in range(start_step, self.max_iters):
 
             lr = self._learning_rate_at(step)
             for group in optimizer.param_groups:
                 group["lr"] = lr
 
-            if step % train_config.eval_interval == 0 or step == train_config.max_iters - 1:
+            if step % train_config.eval_interval == 0 or step == self.max_iters - 1:
                 losses = self.estimate_loss(m)
                 print(f"step {step}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}, lr {lr:.2e}")
 
@@ -93,7 +97,7 @@ class Trainer:
             if step % train_config.checkpoint_interval == 0 and step > 0:
                 self._save_checkpoint(m, optimizer, step)
 
-        self._save_checkpoint(m, optimizer, train_config.max_iters)
+        self._save_checkpoint(m, optimizer, self.max_iters)
 
 
     def _sample_model_output(self, m: ElahGPT, max_new_sampling_tokens, device, step):
@@ -136,7 +140,7 @@ class Trainer:
             return peak * (step + 1) / train_config.warmup_steps
 
         # cosine decay from peak down to min_lr_ratio * peak
-        progress = (step - train_config.warmup_steps) / max(1, train_config.max_iters - 1 - train_config.warmup_steps)
+        progress = (step - train_config.warmup_steps) / max(1, self.max_iters - 1 - train_config.warmup_steps)
         cosine = 0.5 * (1 + math.cos(math.pi * min(progress, 1.0)))
 
         return peak * (train_config.min_lr_ratio + (1 - train_config.min_lr_ratio) * cosine)
@@ -173,9 +177,19 @@ class Trainer:
 
         # the earlier stage's architecture wins, so this stage saves what it actually holds
         self.model_config = model.config
+        self._apply_dropout(model, self.config["dropout"])
         print(f"Resumed weights from {path}")
 
         return model, None, 0
+
+    def _apply_dropout(self, model: ElahGPT, dropout: float):
+        for module in model.modules():
+            if isinstance(module, torch.nn.Dropout):
+                module.p = dropout
+            elif isinstance(module, MultiHeadAttention):
+                module.dropout_p = dropout
+
+        self.model_config = replace(self.model_config, dropout=dropout)
 
     def _save_checkpoint(self, model: ElahGPT, optimizer, step):
         path = save_checkpoint(model, optimizer, step, self.stage, self.model_config)
