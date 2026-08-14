@@ -16,6 +16,7 @@ from rich.progress import (
     TimeElapsedColumn,
     TimeRemainingColumn,
 )
+from rich.table import Table
 
 console = Console()
 
@@ -40,6 +41,37 @@ def get_logger(name: str = "elah"):
 
 def log_panel(body: str, title: str):
     console.print(Panel(body, title=title, border_style="cyan"))
+
+
+def log_settings(title: str, sections: dict[str, dict]):
+    table = Table.grid(padding=(0, 2))
+    table.add_column(style="dim", justify="right")
+    table.add_column(style="bold")
+
+    for index, (heading, fields) in enumerate(sections.items()):
+        if index:
+            table.add_row("", "")
+
+        table.add_row("", f"[cyan]{heading}[/]")
+
+        for key, value in fields.items():
+            table.add_row(key, str(value))
+
+    console.print(Panel(table, title=title, border_style="cyan"))
+
+
+def format_duration(seconds: float):
+    seconds = int(max(seconds, 0))
+    hours, remainder = divmod(seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+
+    if hours:
+        return f"{hours}h{minutes:02d}m"
+
+    if minutes:
+        return f"{minutes}m{seconds:02d}s"
+
+    return f"{seconds}s"
 
 
 class MetricsLog:
@@ -85,6 +117,8 @@ def training_progress(enabled: bool = True):
         MofNCompleteColumn(),
         TaskProgressColumn(),
         TextColumn("loss [green]{task.fields[loss]}[/]"),
+        TextColumn("gnorm [yellow]{task.fields[grad_norm]}[/]"),
+        TextColumn("[red]{task.fields[skipped]}[/]"),
         TextColumn("elapsed"),
         TimeElapsedColumn(),
         TextColumn("eta"),

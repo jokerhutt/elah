@@ -97,7 +97,7 @@ def _pretokenize():
 
 
 def _train():
-    from config import CHECKPOINT_DIR, STAGES
+    from config import STAGES
     from model.trainer import Trainer
 
     stage = questionary.select("Which stage?", choices=list(STAGES)).ask()
@@ -105,16 +105,59 @@ def _train():
     if stage is None:
         return
 
-    resume = False
-    checkpoint = CHECKPOINT_DIR / f"{stage}.pt"
+    resume_path = _choose_checkpoint(stage)
 
-    if checkpoint.exists():
-        resume = questionary.confirm(
-            f"Continue '{stage}' from {checkpoint.name}?",
-            default=True,
+    if resume_path is _CANCELLED:
+        return
+
+    Trainer(stage=stage, resume=resume_path is not None, resume_path=resume_path).run_training()
+
+
+_CANCELLED = object()
+
+
+def _choose_checkpoint(stage):
+    from model_io import archive_checkpoints, list_checkpoints
+
+    checkpoints = list_checkpoints(stage)
+
+    if not checkpoints:
+        return None
+
+    latest = checkpoints[0]
+
+    use_latest = f"Continue from latest - {latest.label}"
+    pick = f"Choose from {len(checkpoints)} checkpoint(s)"
+    scratch = "Start from scratch"
+
+    how = questionary.select(
+        f"'{stage}' has {len(checkpoints)} checkpoint(s)",
+        choices=[use_latest, pick, scratch, "Cancel"],
+    ).ask()
+
+    if how is None or how == "Cancel":
+        return _CANCELLED
+
+    if how == use_latest:
+        return latest.path
+
+    if how == pick:
+        chosen = questionary.select(
+            "Which checkpoint?",
+            choices=[questionary.Choice(c.label, value=c.path) for c in checkpoints],
         ).ask()
 
-        if resume is None:
-            return
+        return _CANCELLED if chosen is None else chosen
 
-    Trainer(stage=stage, resume=resume).run_training()
+    archive = questionary.confirm(
+        f"Archive the {len(checkpoints)} existing checkpoint(s) first?",
+        default=True,
+    ).ask()
+
+    if archive is None:
+        return _CANCELLED
+
+    if archive:
+        print(f"Archived to {archive_checkpoints(stage)}")
+
+    return None

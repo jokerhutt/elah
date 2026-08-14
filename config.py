@@ -29,27 +29,32 @@ TOKENIZER_VOCAB = TOKENIZER_PREFIX.with_suffix(".vocab")
 
 # TRANSFORMER CONFIG
 BLOCK_SIZE = 1024
-BATCH_SIZE = 128
+
+BATCH_SIZE = 256
 MICRO_BATCH_SIZE = 32
-MAX_ITERS = 22_888
+MAX_ITERS = 11_444
 
 assert BATCH_SIZE % MICRO_BATCH_SIZE == 0, "BATCH_SIZE must be a multiple of MICRO_BATCH_SIZE"
 
-LEARNING_RATE = 6e-4
+LEARNING_RATE = 4e-4
 NORM_EPS = 1e-5
 TIE_WEIGHTS = True
 N_HEAD = 8
 N_LAYER = 10
 DROPOUT = 0.0
 
-TRAINING_SPLIT_PERCENTAGE = 0.9
+# VALIDATION SPLIT
+VAL_CHUNK_TOKENS = 10_000_000
+VAL_STRIDE = 10
 
 # LOGGING
-SAMPLE_INTERVAL = 2000
-CHECKPOINT_INTERVAL = 2000
-EVAL_INTERVAL = 500
+SAMPLE_INTERVAL = 1000
+CHECKPOINT_INTERVAL = 1000
+EVAL_INTERVAL = 250
 EVAL_ITERS = 50
 SHOW_PROGRESS = True
+
+KEEP_CHECKPOINTS = None
 
 # GPU
 GPU_DEVICE = (
@@ -72,6 +77,7 @@ MIN_LR_RATIO = 0.1
 GRAD_CLIP = 1.0
 ADAM_BETAS = (0.9, 0.95)
 WEIGHT_DECAY = 0.1
+GRAD_SKIP_THRESHOLD = 3.0
 
 # PRETOKENIZED DATA
 TOKENS_DIR = ARTIFACTS_ROOT / "tokens"
@@ -123,11 +129,14 @@ class TrainingConfig:
     max_iters: int = MAX_ITERS
     batch_size: int = BATCH_SIZE
     micro_batch_size: int = MICRO_BATCH_SIZE
-    training_split: float = TRAINING_SPLIT_PERCENTAGE
+
+    val_chunk_tokens: int = VAL_CHUNK_TOKENS
+    val_stride: int = VAL_STRIDE
 
     warmup_steps: int = WARMUP_STEPS
     min_lr_ratio: float = MIN_LR_RATIO
     grad_clip: float = GRAD_CLIP
+    grad_skip_threshold: float = GRAD_SKIP_THRESHOLD
     adam_betas: tuple[float, float] = ADAM_BETAS
     weight_decay: float = WEIGHT_DECAY
 
@@ -135,6 +144,7 @@ class TrainingConfig:
     eval_iters: int = EVAL_ITERS
     sample_interval: int = SAMPLE_INTERVAL
     checkpoint_interval: int = CHECKPOINT_INTERVAL
+    keep_checkpoints: int | None = KEEP_CHECKPOINTS
     show_progress: bool = SHOW_PROGRESS
 
     device: str = GPU_DEVICE
