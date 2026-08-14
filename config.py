@@ -77,7 +77,8 @@ MIN_LR_RATIO = 0.1
 GRAD_CLIP = 1.0
 ADAM_BETAS = (0.9, 0.95)
 WEIGHT_DECAY = 0.1
-GRAD_SKIP_THRESHOLD = 3.0
+GRAD_SKIP_FACTOR = 4.0
+GRAD_SKIP_HISTORY = 100
 
 # PRETOKENIZED DATA
 TOKENS_DIR = ARTIFACTS_ROOT / "tokens"
@@ -136,7 +137,8 @@ class TrainingConfig:
     warmup_steps: int = WARMUP_STEPS
     min_lr_ratio: float = MIN_LR_RATIO
     grad_clip: float = GRAD_CLIP
-    grad_skip_threshold: float = GRAD_SKIP_THRESHOLD
+    grad_skip_factor: float = GRAD_SKIP_FACTOR
+    grad_skip_history: int = GRAD_SKIP_HISTORY
     adam_betas: tuple[float, float] = ADAM_BETAS
     weight_decay: float = WEIGHT_DECAY
 

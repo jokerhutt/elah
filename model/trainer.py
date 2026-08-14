@@ -1,5 +1,7 @@
 import math
+import statistics
 import time
+from collections import deque
 from dataclasses import replace
 
 import numpy as np
@@ -14,6 +16,27 @@ from tokenizer.tokenizer import Tokenizer
 
 
 log = get_logger()
+
+
+class GradGuard:
+
+    def __init__(self, factor: float, history: int):
+        self.factor = factor
+        self.norms = deque(maxlen=history)
+        self.min_history = max(history // 2, 1)
+
+    def check(self, grad_norm: float):
+        if not math.isfinite(grad_norm):
+            return False, None
+
+        self.norms.append(grad_norm)
+
+        if len(self.norms) < self.min_history:
+            return True, None
+
+        threshold = self.factor * statistics.median(self.norms)
+
+        return grad_norm <= threshold, threshold
 
 
 class StepWindow:
@@ -160,6 +183,7 @@ class Trainer:
         metrics.write(**self._run_record(params, tokens_per_step, start_step))
 
         window = StepWindow()
+        guard = GradGuard(train_config.grad_skip_factor, train_config.grad_skip_history)
         best = {"val_loss": math.inf, "step": None}
 
         if train_config.device == "cuda":
@@ -215,12 +239,13 @@ class Trainer:
 
                 grad_norm = float(torch.nn.utils.clip_grad_norm_(m.parameters(), train_config.grad_clip))
 
-                healthy = math.isfinite(grad_norm) and grad_norm < train_config.grad_skip_threshold
+                healthy, threshold = guard.check(grad_norm)
 
                 if healthy:
                     optimizer.step()
                 else:
-                    log.warning(f"skipped step [bold]{step:,}[/] grad_norm=[red]{grad_norm:.2f}[/]")
+                    limit = "non-finite" if threshold is None else f"limit {threshold:.2f}"
+                    log.warning(f"skipped step [bold]{step:,}[/] grad_norm=[red]{grad_norm:.2f}[/] [dim]{limit}[/]")
 
                 window.record(float(loss_total), grad_norm, skipped=not healthy)
 
@@ -288,7 +313,7 @@ class Trainer:
                 },
                 "stability": {
                     "grad_clip": train_config.grad_clip,
-                    "skip_above": train_config.grad_skip_threshold,
+                    "skip_above": f"{train_config.grad_skip_factor}x median of {train_config.grad_skip_history}",
                     "weight_decay": train_config.weight_decay,
                     "betas": train_config.adam_betas,
                 },
@@ -362,7 +387,8 @@ class Trainer:
             "weight_decay": train_config.weight_decay,
             "adam_betas": list(train_config.adam_betas),
             "grad_clip": train_config.grad_clip,
-            "grad_skip_threshold": train_config.grad_skip_threshold,
+            "grad_skip_factor": train_config.grad_skip_factor,
+            "grad_skip_history": train_config.grad_skip_history,
             "eval_iters": train_config.eval_iters,
             "device": train_config.device,
             "bf16": train_config.use_bf16,
