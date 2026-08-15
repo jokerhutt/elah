@@ -54,6 +54,8 @@ EVAL_INTERVAL = 250
 EVAL_ITERS = 50
 SHOW_PROGRESS = True
 
+# How many checkpoints to keep
+# None = All checkpoints kept
 KEEP_CHECKPOINTS = None
 
 # GPU
@@ -105,7 +107,7 @@ STAGES = {
     "sft": {
         "tokens": SFT_TOKENS,
         "learning_rate": 2e-5,
-        "max_iters": 3_500,
+        "max_iters": 1_750,
         "dropout": 0.1,
         # assistant turns end with <|im_end|>
         "stop_token": "im_end_id",
