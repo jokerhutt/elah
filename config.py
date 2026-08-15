@@ -107,7 +107,7 @@ STAGES = {
     "sft": {
         "tokens": SFT_TOKENS,
         "learning_rate": 2e-5,
-        "max_iters": 1_750,
+        "max_iters": 3_500,
         "dropout": 0.1,
         # assistant turns end with <|im_end|>
         "stop_token": "im_end_id",
